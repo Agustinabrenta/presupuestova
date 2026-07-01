@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vuelo Aventura — Cotizador</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+  :root { --navy:#002d72; --navy-soft:#f2f6ff; --line:#dce1ea; --ink:#1a2330; --muted:#6a7486; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif; background:#eef1f6; color:var(--ink); }
+  .topbar { background:var(--navy); color:#fff; padding:18px 24px; display:flex; align-items:center; justify-content:space-between; }
+  .brand { display:flex; align-items:center; gap:12px; }
+  .brand .logo { width:38px; height:38px; border-radius:9px; background:rgba(255,255,255,.15); display:grid; place-items:center; font-size:20px; }
+  .brand h1 { font-size:19px; margin:0; line-height:1.1; }
+  .brand small { opacity:.75; font-size:12px; }
+  .tabs { display:flex; gap:6px; }
+  .tab { background:rgba(255,255,255,.12); color:#fff; border:1px solid rgba(255,255,255,.25); padding:8px 15px; border-radius:9px; font-size:13.5px; font-weight:600; cursor:pointer; }
+  .tab.active { background:#fff; color:var(--navy); border-color:#fff; }
+  .wrap { max-width:940px; margin:0 auto; padding:24px; display:grid; gap:20px; }
+  .card { background:#fff; border-radius:14px; padding:22px; box-shadow:0 1px 3px rgba(0,0,0,.06); }
+  h2 { font-size:15px; font-weight:700; color:var(--navy); margin:0 0 16px; }
+  .grid3 { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:14px; }
+  label.field { display:block; }
+  label.field span { font-size:12.5px; font-weight:600; color:#5a6474; display:block; margin-bottom:5px; }
+  input,textarea { width:100%; padding:10px 12px; border-radius:9px; border:1.5px solid var(--line); font-size:14px; font-family:inherit; outline:none; }
+  input:focus,textarea:focus { border-color:var(--navy); }
+  .opt { display:flex; align-items:center; gap:14px; padding:12px 14px; border-radius:10px; cursor:pointer; border:1.5px solid var(--line); background:#fff; margin-bottom:10px; }
+  .opt.on { border:2px solid var(--navy); background:var(--navy-soft); }
+  .opt .box { width:22px; height:22px; border-radius:6px; flex-shrink:0; display:grid; place-items:center; background:#fff; border:1.5px solid #c3cad6; color:#fff; font-size:14px; }
+  .opt.on .box { background:var(--navy); border:none; }
+  .opt img.thumb { width:64px; height:64px; border-radius:8px; object-fit:cover; flex-shrink:0; background:#eef1f6; }
+  .opt .name { font-weight:600; font-size:14.5px; }
+  .opt .det { font-size:12.5px; color:var(--muted); margin-top:2px; }
+  .opt .price { font-weight:700; font-size:14.5px; color:var(--navy); white-space:nowrap; margin-left:auto; }
+  .summary { position:sticky; bottom:16px; border-top:3px solid var(--navy); }
+  .summary .row { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; }
+  .total { font-size:16px; font-weight:700; color:var(--navy); }
+  button.primary { display:inline-flex; align-items:center; gap:8px; background:var(--navy); color:#fff; border:none; padding:12px 22px; border-radius:10px; font-size:15px; font-weight:700; cursor:pointer; }
+  button.primary:disabled { opacity:.6; cursor:default; }
+  button.outline { display:inline-flex; align-items:center; gap:7px; background:#fff; color:var(--navy); border:1.5px solid var(--navy); padding:9px 16px; border-radius:9px; font-size:13.5px; font-weight:600; cursor:pointer; }
+  button.outline:disabled { opacity:.5; cursor:default; }
+  .cfg-row { display:grid; grid-template-columns:56px 1fr 1fr 90px 34px; gap:8px; align-items:center; margin-bottom:8px; }
+  .cfg-row input { padding:8px 10px; font-size:13px; }
+  .thumb-slot { width:52px; height:52px; border-radius:8px; border:1.5px dashed #c3cad6; display:grid; place-items:center; cursor:pointer; overflow:hidden; background:#f7f9fc; position:relative; }
+  .thumb-slot img { width:100%; height:100%; object-fit:cover; }
+  .thumb-slot span { font-size:10px; color:var(--muted); text-align:center; line-height:1.1; }
+  .iconbtn { background:none; border:none; cursor:pointer; padding:6px; font-size:16px; line-height:1; }
+  textarea.tyc { resize:vertical; line-height:1.5; }
+  /* Historial */
+  .hist-item { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:14px 16px; border:1.5px solid var(--line); border-radius:10px; margin-bottom:10px; }
+  .hist-item .meta { font-size:12.5px; color:var(--muted); margin-top:3px; }
+  .hist-actions { display:flex; gap:8px; flex-shrink:0; }
+  .empty { text-align:center; color:var(--muted); padding:30px; font-size:14px; }
+  .hidden { display:none; }
+  .status { font-size:12px; padding:6px 10px; border-radius:7px; display:inline-block; }
+  .status.ok { background:#e7f5ec; color:#1c7a44; }
+  .status.err { background:#fdecec; color:#b3261e; }
+  @media (max-width:560px){ .cfg-row{ grid-template-columns:44px 1fr 70px 30px; } .cfg-row .det-in{ grid-column:1/-1; } }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="brand">
+    <div class="logo">🎈</div>
+    <div><h1>Vuelo Aventura</h1><small>Generador de cotizaciones</small></div>
+  </div>
+  <div class="tabs">
+    <button class="tab active" data-view="cotizar">Cotizar</button>
+    <button class="tab" data-view="historial">Historial</button>
+    <button class="tab" data-view="catalogo">Catálogo</button>
+  </div>
+</div>
+
+<!-- ============ VISTA COTIZAR ============ -->
+<div class="wrap" id="view-cotizar">
+  <div class="card">
+    <h2>Datos de la cotización</h2>
+    <div class="grid3">
+      <label class="field"><span>Nombre del cliente</span><input id="cli-nombre" placeholder="Ej: Juan Pérez"></label>
+      <label class="field"><span>Fecha de la cotización</span><input id="cli-fecha" type="date"></label>
+      <label class="field"><span>Validez (días)</span><input id="cli-validez" type="number" min="1" value="15"></label>
+    </div>
+  </div>
+  <div class="card">
+    <h2>Opciones a incluir en la propuesta</h2>
+    <p style="font-size:12.5px;color:var(--muted);margin:-8px 0 16px">Cada opción seleccionada aparece como una propuesta alternativa en el PDF. No se suman entre sí.</p>
+    <div id="opt-list"></div>
+  </div>
+  <div class="card summary">
+    <div class="row">
+      <div>
+        <div id="sel-count" style="font-size:12.5px;color:var(--muted)">0 opciones seleccionadas</div>
+        <div class="total" id="sel-total">Elegí las opciones a enviar</div>
+      </div>
+      <button class="primary" id="btn-pdf">⬇ Descargar PDF y guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ VISTA HISTORIAL ============ -->
+<div class="wrap hidden" id="view-historial">
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <h2 style="margin:0">Historial de cotizaciones <span style="font-weight:500;font-size:12px;color:var(--muted)">(compartido)</span></h2>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="outline" id="btn-refresh">↻ Actualizar</button>
+        <button class="outline" id="btn-clear-hist">Vaciar historial</button>
+      </div>
+    </div>
+    <div id="hist-list"></div>
+  </div>
+</div>
+
+<!-- ============ VISTA CATALOGO ============ -->
+<div class="wrap hidden" id="view-catalogo">
+  <div class="card">
+    <h2>Editar catálogo de servicios</h2>
+    <div id="cfg-list"></div>
+    <button class="outline" id="btn-add" style="margin-top:6px">+ Agregar opción</button>
+  </div>
+  <div class="card">
+    <h2>Términos y condiciones</h2>
+    <textarea id="tyc" class="tyc" rows="9"></textarea>
+  </div>
+  <div class="card">
+    <h2>Datos del encabezado</h2>
+    <div class="grid3">
+      <label class="field"><span>Nombre empresa</span><input id="emp-nombre"></label>
+      <label class="field"><span>Domicilio</span><input id="emp-dom"></label>
+      <label class="field"><span>Código postal / ciudad</span><input id="emp-cp"></label>
+      <label class="field"><span>Teléfono</span><input id="emp-tel"></label>
+      <label class="field"><span>Email</span><input id="emp-email"></label>
+      <label class="field"><span>Web</span><input id="emp-web"></label>
+    </div>
+  </div>
+</div>
+
+<script>
+// ───────── Estado ─────────
+const EMPRESA_DEF = {
+  nombre:"Vuelo Aventura",
+  dom:"Aeródromo Municipal de Zárate — Ruta 9, Km. 88,5",
+  cp:"B2800ARJ — Zárate",
+  tel:"(011) 15 4145 7128",
+  email:"info@vueloaventura.com.ar",
+  web:"www.vueloaventura.com.ar"
+};
+const TYC_DEF = `1. Los precios están expresados en dólares estadounidenses (USD) y no incluyen impuestos salvo indicación contraria.
+2. Toda actividad queda sujeta a las condiciones meteorológicas. En caso de suspensión por clima, se reprogramará sin cargo adicional.
+3. La reserva se confirma con una seña del 50% del total cotizado. El saldo se abona el día de la actividad.
+4. Los vuelos en globo aerostático están sujetos a la reglamentación de la ANAC y a la decisión final del piloto comandante.
+5. Esta cotización tiene la validez indicada. Pasado ese plazo, los valores pueden ser actualizados.`;
+const CAT_DEF = [
+  {id:1,nombre:"Vuelo compartido (por persona)",detalle:"Vuelo grupal de aprox. 1 hora al amanecer",precio:180,img:""},
+  {id:2,nombre:"Vuelo privado (hasta 2 personas)",detalle:"Cesta exclusiva, brindis y certificado",precio:650,img:""},
+  {id:3,nombre:"Traslado ida y vuelta",detalle:"Desde punto de encuentro al sitio de despegue",precio:45,img:""},
+  {id:4,nombre:"Sesión de fotos y video",detalle:"Cobertura profesional entregada en digital",precio:90,img:""},
+  {id:5,nombre:"Desayuno campestre",detalle:"Desayuno completo al finalizar el vuelo",precio:30,img:""}
+];
+
+// localStorage se sigue usando SOLO para config local (catálogo, T&C, empresa).
+// El HISTORIAL ahora vive en el servidor (Vercel KV) vía /api/historial.
+const LS = {
+  get:(k,f)=>{ try{ const v=localStorage.getItem(k); return v?JSON.parse(v):f; }catch{ return f; } },
+  set:(k,v)=>{ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){ alert("No se pudo guardar (¿imagen muy pesada?): "+e.message); } }
+};
+
+let catalogo = LS.get("va_catalogo", CAT_DEF);
+let tyc = LS.get("va_tyc", TYC_DEF);
+let empresa = LS.get("va_empresa", EMPRESA_DEF);
+let historial = [];            // ← ahora se carga del servidor
+let seleccion = {};
+
+const money = n => "USD "+Number(n||0).toLocaleString("es-AR",{minimumFractionDigits:2,maximumFractionDigits:2});
+const $ = id => document.getElementById(id);
+
+// ───────── API del historial (servidor) ─────────
+const API = "/api/historial";
+async function apiGet(){
+  const r = await fetch(API);
+  if(!r.ok) throw new Error("No se pudo leer el historial ("+r.status+")");
+  return await r.json();
+}
+async function apiPost(item){
+  const r = await fetch(API, { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(item) });
+  if(!r.ok) throw new Error("No se pudo guardar en el historial ("+r.status+")");
+  return await r.json();
+}
+async function apiDelete(id){
+  const url = id ? API+"?id="+encodeURIComponent(id) : API;
+  const r = await fetch(url, { method:"DELETE" });
+  if(!r.ok) throw new Error("No se pudo borrar ("+r.status+")");
+  return await r.json();
+}
+
+// ───────── Navegación ─────────
+document.querySelectorAll(".tab").forEach(t=>t.onclick=()=>{
+  document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));
+  t.classList.add("active");
+  ["cotizar","historial","catalogo"].forEach(v=>$("view-"+v).classList.add("hidden"));
+  $("view-"+t.dataset.view).classList.remove("hidden");
+  if(t.dataset.view==="historial") cargarHist();
+  if(t.dataset.view==="catalogo") renderCfg();
+});
+
+// ───────── Vista Cotizar ─────────
+$("cli-fecha").value = new Date().toISOString().slice(0,10);
+
+function renderOpts(){
+  const list = $("opt-list"); list.innerHTML="";
+  catalogo.forEach(o=>{
+    const on = !!seleccion[o.id];
+    const div = document.createElement("div");
+    div.className = "opt"+(on?" on":"");
+    div.innerHTML = `
+      <div class="box">${on?"✓":""}</div>
+      ${o.img?`<img class="thumb" src="${o.img}">`:""}
+      <div><div class="name">${esc(o.nombre)||"(sin nombre)"}</div>${o.detalle?`<div class="det">${esc(o.detalle)}</div>`:""}</div>
+      <div class="price">${money(o.precio)}</div>`;
+    div.onclick=()=>{ seleccion[o.id]=!seleccion[o.id]; renderOpts(); updTotal(); };
+    list.appendChild(div);
+  });
+}
+function updTotal(){
+  const items = catalogo.filter(o=>seleccion[o.id]);
+  $("sel-count").textContent = items.length+" opción"+(items.length!==1?"es":"")+" seleccionada"+(items.length!==1?"s":"");
+  $("sel-total").textContent = items.length ? "Se enviarán "+items.length+" propuesta"+(items.length!==1?"s":"")+" alternativa"+(items.length!==1?"s":"") : "Elegí las opciones a enviar";
+}
+
+// ───────── Catálogo (config, sigue local) ─────────
+function renderCfg(){
+  const list = $("cfg-list"); list.innerHTML="";
+  catalogo.forEach(o=>{
+    const row = document.createElement("div");
+    row.className="cfg-row";
+    row.innerHTML = `
+      <div class="thumb-slot" data-id="${o.id}">${o.img?`<img src="${o.img}">`:`<span>+ foto</span>`}</div>
+      <input value="${esc(o.nombre)}" placeholder="Nombre" data-f="nombre">
+      <input value="${esc(o.detalle)}" class="det-in" placeholder="Detalle (opcional)" data-f="detalle">
+      <input value="${o.precio}" placeholder="USD" inputmode="decimal" data-f="precio">
+      <button class="iconbtn" title="Eliminar">🗑️</button>`;
+    row.querySelectorAll("input").forEach(inp=>{
+      inp.oninput=()=>{ let v=inp.value; if(inp.dataset.f==="precio") v=v.replace(/[^\d.]/g,""); o[inp.dataset.f]=inp.dataset.f==="precio"?v:inp.value; save(); };
+    });
+    const slot = row.querySelector(".thumb-slot");
+    slot.onclick=()=>pickImage(o);
+    row.querySelector(".iconbtn").onclick=()=>{ catalogo=catalogo.filter(x=>x!==o); delete seleccion[o.id]; save(); renderCfg(); renderOpts(); updTotal(); };
+    list.appendChild(row);
+  });
+}
+function pickImage(o){
+  const inp=document.createElement("input"); inp.type="file"; inp.accept="image/*";
+  inp.onchange=()=>{ const f=inp.files[0]; if(!f) return;
+    const r=new FileReader();
+    r.onload=()=>{ compress(r.result, 900, dataUrl=>{ o.img=dataUrl; save(); renderCfg(); renderOpts(); }); };
+    r.readAsDataURL(f);
+  };
+  inp.click();
+}
+function compress(dataUrl, maxW, cb){
+  const img=new Image();
+  img.onload=()=>{ const sc=Math.min(1,maxW/img.width); const c=document.createElement("canvas");
+    c.width=img.width*sc; c.height=img.height*sc;
+    c.getContext("2d").drawImage(img,0,0,c.width,c.height);
+    cb(c.toDataURL("image/jpeg",0.75)); };
+  img.src=dataUrl;
+}
+
+$("btn-add").onclick=()=>{ catalogo.push({id:Date.now(),nombre:"",detalle:"",precio:0,img:""}); save(); renderCfg(); renderOpts(); };
+
+// TyC + empresa
+$("tyc").value = tyc;
+$("tyc").oninput=()=>{ tyc=$("tyc").value; LS.set("va_tyc",tyc); };
+const empFields={"emp-nombre":"nombre","emp-dom":"dom","emp-cp":"cp","emp-tel":"tel","emp-email":"email","emp-web":"web"};
+Object.entries(empFields).forEach(([id,k])=>{ $(id).value=empresa[k]; $(id).oninput=()=>{ empresa[k]=$(id).value; LS.set("va_empresa",empresa); }; });
+
+function save(){ LS.set("va_catalogo",catalogo); }
+
+// helper: busca la imagen actual del catálogo por nombre de opción
+function imgDeCatalogo(nombre){
+  const o = catalogo.find(c=>c.nombre===nombre);
+  return o ? o.img : "";
+}
+
+// ───────── PDF ─────────
+$("btn-pdf").onclick=async()=>{
+  const nombre=$("cli-nombre").value.trim();
+  const fecha=$("cli-fecha").value;
+  const validez=$("cli-validez").value||"15";
+  const items=catalogo.filter(o=>seleccion[o.id]);
+  if(!nombre){ alert("Ingresá el nombre del cliente."); return; }
+  if(!items.length){ alert("Seleccioná al menos una opción."); return; }
+  const btn=$("btn-pdf"); btn.disabled=true; btn.textContent="Generando…";
+  try{
+    // 1) Genero el PDF con las imágenes actuales del catálogo
+    await buildPDF({nombre,fecha,validez,items});
+    // 2) Guardo en el historial compartido SIN las imágenes base64 (para no inflar la base).
+    //    Guardo el nombre de cada opción; al regenerar, se toma la foto actual del catálogo.
+    const registro = {
+      nombre, fecha, validez,
+      items: items.map(i=>({ nombre:i.nombre, detalle:i.detalle, precio:i.precio }))
+    };
+    await apiPost(registro);
+  }catch(e){ alert("Error: "+e.message); }
+  finally{ btn.disabled=false; btn.textContent="⬇ Descargar PDF y guardar"; }
+};
+
+async function buildPDF(q){
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({unit:"mm",format:"a4"});
+  const W=210, H=297, M=18, navy=[0,45,114], rightX=W-M, CW=W-2*M;
+  let y=20;
+
+  // ── Encabezado ──
+  doc.setFillColor(...navy); doc.rect(0,0,W,4,"F");
+  doc.setTextColor(...navy); doc.setFont("helvetica","bold"); doc.setFontSize(22);
+  doc.text(empresa.nombre,M,y);
+  doc.setFont("helvetica","normal"); doc.setFontSize(8.5); doc.setTextColor(80,80,80);
+  let hy=y+6;
+  [empresa.dom, empresa.cp, "Tel.: "+empresa.tel, empresa.email+"  ·  "+empresa.web].forEach(l=>{doc.text(l,M,hy);hy+=4;});
+  y=hy+6; doc.setDrawColor(...navy); doc.setLineWidth(.4); doc.line(M,y,W-M,y); y+=8;
+
+  // ── Título + datos cliente ──
+  doc.setFont("helvetica","bold"); doc.setFontSize(13); doc.setTextColor(...navy); doc.text("COTIZACIÓN",M,y);
+  doc.setFontSize(9.5); doc.setTextColor(40,40,40); doc.setFont("helvetica","normal");
+  const fFmt=new Date(q.fecha+"T00:00").toLocaleDateString("es-AR");
+  doc.text("Fecha: "+fFmt,rightX,y-4,{align:"right"});
+  doc.text("Validez: "+q.validez+" días",rightX,y,{align:"right"});
+  y+=8; doc.setFont("helvetica","bold"); doc.text("Cliente:",M,y);
+  doc.setFont("helvetica","normal"); doc.text(q.nombre,M+20,y); y+=6;
+
+  // ── Intro ──
+  doc.setFontSize(9); doc.setTextColor(90,90,90);
+  const intro = q.items.length>1
+    ? "A continuación presentamos las distintas opciones disponibles para que elijas la que mejor se adapte a vos. Cada propuesta es independiente."
+    : "A continuación presentamos la propuesta para tu experiencia en globo aerostático.";
+  doc.splitTextToSize(intro, CW).forEach(l=>{ doc.text(l,M,y); y+=4.2; });
+  y+=4;
+
+  // ── Tarjetas de propuesta ──
+  const imgH=52;
+  const gap=6;
+  q.items.forEach((it,idx)=>{
+    // Si el registro no trae imagen (viene del historial), la busco en el catálogo actual
+    const img = it.img || imgDeCatalogo(it.nombre);
+    doc.setFontSize(9); const detLines = it.detalle?doc.splitTextToSize(it.detalle, CW-8):[];
+    const textZone = 9 + detLines.length*4 + 12;
+    const bodyH = img ? imgH + 6 + textZone : textZone + 4;
+    const cardH = 9 + bodyH;
+
+    if(y + cardH > H-24){ doc.addPage(); y=20; }
+
+    doc.setDrawColor(210,216,226); doc.setLineWidth(.3);
+    doc.roundedRect(M, y, CW, cardH, 2.5, 2.5, "S");
+    doc.setFillColor(...navy); doc.roundedRect(M, y, CW, 9, 2.5, 2.5, "F");
+    doc.rect(M, y+4.5, CW, 4.5, "F");
+    doc.setTextColor(255,255,255); doc.setFont("helvetica","bold"); doc.setFontSize(10.5);
+    const label = q.items.length>1 ? ("OPCIÓN "+(idx+1)+"  ·  "+it.nombre) : it.nombre;
+    doc.text(doc.splitTextToSize(label, CW-8)[0], M+4, y+6);
+
+    let cy = y+9+5;
+    if(img){
+      try{
+        const props = doc.getImageProperties(img);
+        const ratio = props.width/props.height;
+        let dispW = CW-10, dispH = dispW/ratio;
+        if(dispH>imgH){ dispH=imgH; dispW=dispH*ratio; }
+        const ix = M + (CW-dispW)/2;
+        doc.addImage(img,"JPEG",ix,cy,dispW,dispH);
+        cy += Math.max(dispH, imgH) + 5;
+      }catch(e){ }
+    }
+    doc.setTextColor(70,70,70); doc.setFont("helvetica","normal"); doc.setFontSize(9);
+    if(detLines.length){ doc.text(detLines, M+4, cy); cy += detLines.length*4 + 2; }
+    doc.setFillColor(242,246,255); doc.roundedRect(M+4, cy, 60, 9, 2, 2, "F");
+    doc.setTextColor(...navy); doc.setFont("helvetica","bold"); doc.setFontSize(12);
+    doc.text(money(it.precio), M+8, cy+6.2);
+
+    y += cardH + gap;
+  });
+
+  // ── Términos y condiciones ──
+  y += 2;
+  if(y>H-40){ doc.addPage(); y=20; }
+  doc.setTextColor(...navy); doc.setFont("helvetica","bold"); doc.setFontSize(10);
+  doc.text("Términos y condiciones",M,y); y+=5;
+  doc.setTextColor(90,90,90); doc.setFont("helvetica","normal"); doc.setFontSize(7.8);
+  doc.splitTextToSize(tyc,CW).forEach(l=>{ if(y>H-12){doc.addPage();y=20;} doc.text(l,M,y); y+=3.6; });
+
+  const pages=doc.getNumberOfPages();
+  for(let p=1;p<=pages;p++){ doc.setPage(p); doc.setFontSize(7); doc.setTextColor(150,150,150);
+    doc.text(empresa.nombre+" · "+empresa.web,M,292); doc.text("Página "+p+" de "+pages,rightX,292,{align:"right"}); }
+
+  const safe=q.nombre.replace(/\s+/g,"_").replace(/[^\w\-]/g,"");
+  doc.save("Cotizacion_"+safe+"_"+q.fecha+".pdf");
+}
+
+// ───────── Historial (servidor) ─────────
+async function cargarHist(){
+  const list=$("hist-list");
+  list.innerHTML='<div class="empty">Cargando historial…</div>';
+  try{
+    historial = await apiGet();
+    renderHist();
+  }catch(e){
+    list.innerHTML='<div class="empty" style="color:var(--err,#b3261e)">No se pudo cargar el historial.<br>'+esc(e.message)+'</div>';
+  }
+}
+function renderHist(){
+  const list=$("hist-list");
+  if(!historial.length){ list.innerHTML='<div class="empty">Todavía no hay cotizaciones guardadas.</div>'; return; }
+  list.innerHTML="";
+  historial.forEach(h=>{
+    const div=document.createElement("div"); div.className="hist-item";
+    const fFmt=new Date(h.fecha+"T00:00").toLocaleDateString("es-AR");
+    const precios=(h.items||[]).map(i=>Number(i.precio||0));
+    const min=precios.length?Math.min(...precios):0, max=precios.length?Math.max(...precios):0;
+    const rango = min===max ? money(min) : money(min)+" – "+money(max);
+    div.innerHTML=`
+      <div>
+        <div style="font-weight:700">${esc(h.nombre)}</div>
+        <div class="meta">${fFmt} · validez ${h.validez} días · ${(h.items||[]).length} opción(es) · <b style="color:var(--navy)">${rango}</b></div>
+      </div>
+      <div class="hist-actions">
+        <button class="outline btn-re">↓ PDF</button>
+        <button class="iconbtn btn-del" title="Eliminar">🗑️</button>
+      </div>`;
+    div.querySelector(".btn-re").onclick=()=>buildPDF(h);
+    div.querySelector(".btn-del").onclick=async()=>{
+      if(!confirm("¿Eliminar esta cotización del historial compartido?")) return;
+      try{ await apiDelete(h.id); await cargarHist(); }catch(e){ alert("No se pudo borrar: "+e.message); }
+    };
+    list.appendChild(div);
+  });
+}
+$("btn-refresh").onclick=cargarHist;
+$("btn-clear-hist").onclick=async()=>{
+  if(!confirm("¿Vaciar TODO el historial compartido? Esto afecta a todos los usuarios y no se puede deshacer.")) return;
+  try{ await apiDelete(); await cargarHist(); }catch(e){ alert("No se pudo vaciar: "+e.message); }
+};
+
+function esc(s){ return String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+
+// init
+renderOpts(); updTotal();
+</script>
+</body>
+</html>
