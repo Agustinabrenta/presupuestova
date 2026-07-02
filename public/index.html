@@ -41,11 +41,23 @@
   button.primary:disabled { opacity:.6; cursor:default; }
   button.outline { display:inline-flex; align-items:center; gap:7px; background:#fff; color:var(--navy); border:1.5px solid var(--navy); padding:9px 16px; border-radius:9px; font-size:13.5px; font-weight:600; cursor:pointer; }
   button.outline:disabled { opacity:.5; cursor:default; }
-  .cfg-row { display:grid; grid-template-columns:56px 1fr 1fr 90px 34px; gap:8px; align-items:center; margin-bottom:8px; }
-  .cfg-row input { padding:8px 10px; font-size:13px; }
-  .thumb-slot { width:52px; height:52px; border-radius:8px; border:1.5px dashed #c3cad6; display:grid; place-items:center; cursor:pointer; overflow:hidden; background:#f7f9fc; position:relative; }
-  .thumb-slot img { width:100%; height:100%; object-fit:cover; }
-  .thumb-slot span { font-size:10px; color:var(--muted); text-align:center; line-height:1.1; }
+  .cfg-card { border:1.5px solid var(--line); border-radius:12px; padding:14px; margin-bottom:14px; }
+  .cfg-card .top { display:grid; grid-template-columns:1fr 120px 34px; gap:8px; align-items:start; margin-bottom:10px; }
+  .cfg-card input, .cfg-card textarea { padding:8px 10px; font-size:13px; }
+  .cfg-card textarea { width:100%; resize:vertical; line-height:1.45; font-family:inherit; }
+  .cfg-card .det-label { font-size:11.5px; font-weight:600; color:#5a6474; display:block; margin:4px 0 4px; }
+  .imgs-zone { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
+  .img-box { width:64px; height:64px; border-radius:8px; overflow:hidden; position:relative; background:#f7f9fc; border:1.5px solid var(--line); }
+  .img-box img { width:100%; height:100%; object-fit:cover; }
+  .img-box .rm { position:absolute; top:2px; right:2px; background:rgba(0,0,0,.6); color:#fff; border:none; border-radius:50%; width:18px; height:18px; font-size:11px; line-height:1; cursor:pointer; padding:0; display:grid; place-items:center; }
+  .img-add { width:64px; height:64px; border-radius:8px; border:1.5px dashed #c3cad6; display:grid; place-items:center; cursor:pointer; background:#f7f9fc; font-size:11px; color:var(--muted); text-align:center; line-height:1.1; }
+  /* Preview modal */
+  #preview { position:fixed; inset:0; background:rgba(15,20,30,.6); z-index:90; display:none; flex-direction:column; padding:16px; }
+  #preview .pv-head { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:10px; }
+  #preview .pv-head .ttl { color:#fff; font-weight:700; font-size:15px; }
+  #preview .pv-actions { display:flex; gap:8px; }
+  #preview iframe { flex:1; width:100%; border:none; border-radius:10px; background:#fff; }
+  #preview button.ghost { background:rgba(255,255,255,.15); color:#fff; border:1px solid rgba(255,255,255,.4); padding:10px 18px; border-radius:9px; font-size:14px; font-weight:600; cursor:pointer; }
   .iconbtn { background:none; border:none; cursor:pointer; padding:6px; font-size:16px; line-height:1; }
   textarea.tyc { resize:vertical; line-height:1.5; }
   /* Historial */
@@ -69,7 +81,7 @@
   .status { font-size:12px; padding:6px 10px; border-radius:7px; display:inline-block; }
   .status.ok { background:#e7f5ec; color:#1c7a44; }
   .status.err { background:#fdecec; color:#b3261e; }
-  @media (max-width:560px){ .cfg-row{ grid-template-columns:44px 1fr 70px 30px; } .cfg-row .det-in{ grid-column:1/-1; } }
+  @media (max-width:560px){ .cfg-card .top{ grid-template-columns:1fr 90px 30px; } }
 </style>
 </head>
 <body>
@@ -121,7 +133,7 @@
         <div id="sel-count" style="font-size:12.5px;color:var(--muted)">0 opciones seleccionadas</div>
         <div class="total" id="sel-total">Elegí las opciones a enviar</div>
       </div>
-      <button class="primary" id="btn-pdf">⬇ Descargar PDF y guardar</button>
+      <button class="primary" id="btn-pdf">⬇ Generar vista previa</button>
     </div>
   </div>
 </div>
@@ -159,9 +171,19 @@
       <label class="field"><span>Código postal / ciudad</span><input id="emp-cp"></label>
       <label class="field"><span>Teléfono</span><input id="emp-tel"></label>
       <label class="field"><span>Email</span><input id="emp-email"></label>
-      <label class="field"><span>Web</span><input id="emp-web"></label>
+  </div>
+</div>
+
+<!-- ============ PREVIEW PDF ============ -->
+<div id="preview">
+  <div class="pv-head">
+    <div class="ttl">Vista previa de la cotización</div>
+    <div class="pv-actions">
+      <button class="ghost" id="preview-close">Cerrar y editar</button>
+      <button class="primary" id="preview-download">⬇ Descargar y guardar</button>
     </div>
   </div>
+  <iframe id="preview-frame" src="about:blank"></iframe>
 </div>
 
 <script>
@@ -183,11 +205,11 @@ const TYC_DEF = `1. Los precios están expresados en dólares estadounidenses (U
 4. Los vuelos en globo aerostático están sujetos a la reglamentación de la ANAC y a la decisión final del piloto comandante.
 5. Esta cotización tiene la validez indicada. Pasado ese plazo, los valores pueden ser actualizados.`;
 const CAT_DEF = [
-  {id:1,nombre:"Vuelo compartido (por persona)",detalle:"Vuelo grupal de aprox. 1 hora al amanecer",precio:180,img:""},
-  {id:2,nombre:"Vuelo privado (hasta 2 personas)",detalle:"Cesta exclusiva, brindis y certificado",precio:650,img:""},
-  {id:3,nombre:"Traslado ida y vuelta",detalle:"Desde punto de encuentro al sitio de despegue",precio:45,img:""},
-  {id:4,nombre:"Sesión de fotos y video",detalle:"Cobertura profesional entregada en digital",precio:90,img:""},
-  {id:5,nombre:"Desayuno campestre",detalle:"Desayuno completo al finalizar el vuelo",precio:30,img:""}
+  {id:1,nombre:"Vuelo compartido (por persona)",detalle:"Vuelo grupal de aprox. 1 hora al amanecer",precio:180,imgs:[]},
+  {id:2,nombre:"Vuelo privado (hasta 2 personas)",detalle:"Cesta exclusiva, brindis y certificado",precio:650,imgs:[]},
+  {id:3,nombre:"Traslado ida y vuelta",detalle:"Desde punto de encuentro al sitio de despegue",precio:45,imgs:[]},
+  {id:4,nombre:"Sesión de fotos y video",detalle:"Cobertura profesional entregada en digital",precio:90,imgs:[]},
+  {id:5,nombre:"Desayuno campestre",detalle:"Desayuno completo al finalizar el vuelo",precio:30,imgs:[]}
 ];
 
 // localStorage se sigue usando SOLO para config local (catálogo, T&C, empresa).
@@ -198,6 +220,11 @@ const LS = {
 };
 
 let catalogo = LS.get("va_catalogo", CAT_DEF);
+// Migración: opciones viejas con "img" (una sola) → "imgs" (array)
+catalogo.forEach(o=>{
+  if(!Array.isArray(o.imgs)){ o.imgs = o.img ? [o.img] : []; }
+  delete o.img;
+});
 let tyc = LS.get("va_tyc", TYC_DEF);
 let empresa = LS.get("va_empresa", EMPRESA_DEF);
 let historial = [];            // ← ahora se carga del servidor
@@ -254,7 +281,7 @@ function renderOpts(){
     div.className = "opt"+(on?" on":"");
     div.innerHTML = `
       <div class="box">${on?"✓":""}</div>
-      ${o.img?`<img class="thumb" src="${o.img}">`:""}
+      ${o.imgs&&o.imgs.length?`<img class="thumb" src="${o.imgs[0]}">`:""}
       <div><div class="name">${esc(o.nombre)||"(sin nombre)"}</div>${o.detalle?`<div class="det">${esc(o.detalle)}</div>`:""}</div>
       <div class="price">${money(o.precio)}</div>`;
     div.onclick=()=>{ seleccion[o.id]=!seleccion[o.id]; renderOpts(); updTotal(); };
@@ -271,28 +298,44 @@ function updTotal(){
 function renderCfg(){
   const list = $("cfg-list"); list.innerHTML="";
   catalogo.forEach(o=>{
+    if(!Array.isArray(o.imgs)) o.imgs = [];
     const row = document.createElement("div");
-    row.className="cfg-row";
+    row.className="cfg-card";
+    const imgsHtml = o.imgs.map((src,i)=>`
+      <div class="img-box"><img src="${src}"><button class="rm" data-i="${i}" title="Quitar imagen">✕</button></div>`).join("");
     row.innerHTML = `
-      <div class="thumb-slot" data-id="${o.id}">${o.img?`<img src="${o.img}">`:`<span>+ foto</span>`}</div>
-      <input value="${esc(o.nombre)}" placeholder="Nombre" data-f="nombre">
-      <input value="${esc(o.detalle)}" class="det-in" placeholder="Detalle (opcional)" data-f="detalle">
-      <input value="${o.precio}" placeholder="USD" inputmode="decimal" data-f="precio">
-      <button class="iconbtn" title="Eliminar">🗑️</button>`;
-    row.querySelectorAll("input").forEach(inp=>{
+      <div class="top">
+        <input value="${esc(o.nombre)}" placeholder="Nombre de la opción" data-f="nombre">
+        <input value="${o.precio}" placeholder="USD" inputmode="decimal" data-f="precio">
+        <button class="iconbtn btn-del-opt" title="Eliminar opción">🗑️</button>
+      </div>
+      <label class="det-label">Descripción</label>
+      <textarea rows="3" placeholder="Descripción de la opción (podés escribir varios renglones)" data-f="detalle">${esc(o.detalle)}</textarea>
+      <label class="det-label">Imágenes</label>
+      <div class="imgs-zone">
+        ${imgsHtml}
+        <div class="img-add">+ imagen</div>
+      </div>`;
+    // inputs de texto/precio y textarea
+    row.querySelectorAll("[data-f]").forEach(inp=>{
       inp.oninput=()=>{ let v=inp.value; if(inp.dataset.f==="precio") v=v.replace(/[^\d.]/g,""); o[inp.dataset.f]=inp.dataset.f==="precio"?v:inp.value; save(); };
     });
-    const slot = row.querySelector(".thumb-slot");
-    slot.onclick=()=>pickImage(o);
-    row.querySelector(".iconbtn").onclick=()=>{ catalogo=catalogo.filter(x=>x!==o); delete seleccion[o.id]; save(); renderCfg(); renderOpts(); updTotal(); };
+    // borrar opción
+    row.querySelector(".btn-del-opt").onclick=()=>{ catalogo=catalogo.filter(x=>x!==o); delete seleccion[o.id]; save(); renderCfg(); renderOpts(); updTotal(); };
+    // agregar imagen
+    row.querySelector(".img-add").onclick=()=>addImage(o);
+    // quitar imagen
+    row.querySelectorAll(".img-box .rm").forEach(btn=>{
+      btn.onclick=()=>{ o.imgs.splice(Number(btn.dataset.i),1); save(); renderCfg(); renderOpts(); };
+    });
     list.appendChild(row);
   });
 }
-function pickImage(o){
+function addImage(o){
   const inp=document.createElement("input"); inp.type="file"; inp.accept="image/*";
   inp.onchange=()=>{ const f=inp.files[0]; if(!f) return;
     const r=new FileReader();
-    r.onload=()=>{ compress(r.result, 900, dataUrl=>{ o.img=dataUrl; save(); renderCfg(); renderOpts(); }); };
+    r.onload=()=>{ compress(r.result, 900, dataUrl=>{ if(!Array.isArray(o.imgs)) o.imgs=[]; o.imgs.push(dataUrl); save(); renderCfg(); renderOpts(); }); };
     r.readAsDataURL(f);
   };
   inp.click();
@@ -306,7 +349,7 @@ function compress(dataUrl, maxW, cb){
   img.src=dataUrl;
 }
 
-$("btn-add").onclick=()=>{ catalogo.push({id:Date.now(),nombre:"",detalle:"",precio:0,img:""}); save(); renderCfg(); renderOpts(); };
+$("btn-add").onclick=()=>{ catalogo.push({id:Date.now(),nombre:"",detalle:"",precio:0,imgs:[]}); save(); renderCfg(); renderOpts(); };
 
 // TyC + empresa
 $("tyc").value = tyc;
@@ -316,34 +359,65 @@ Object.entries(empFields).forEach(([id,k])=>{ $(id).value=empresa[k]; $(id).onin
 
 function save(){ LS.set("va_catalogo",catalogo); }
 
-// helper: busca la imagen actual del catálogo por nombre de opción
-function imgDeCatalogo(nombre){
+// helper: busca las imágenes actuales del catálogo por nombre de opción
+function imgsDeCatalogo(nombre){
   const o = catalogo.find(c=>c.nombre===nombre);
-  return o ? o.img : "";
+  return (o && Array.isArray(o.imgs)) ? o.imgs : [];
 }
 
 // ───────── PDF ─────────
+let cotizacionPendiente = null;   // datos de la cotización mostrada en el preview
+
 $("btn-pdf").onclick=async()=>{
   const nombre=$("cli-nombre").value.trim();
   const fecha=$("cli-fecha").value;
   const validez=$("cli-validez").value||"15";
-  const items=catalogo.filter(o=>seleccion[o.id]);
+  const items=catalogo.filter(o=>seleccion[o.id]).map(o=>({
+    nombre:o.nombre, detalle:o.detalle, precio:o.precio, imgs:(o.imgs||[]).slice()
+  }));
   if(!nombre){ alert("Ingresá el nombre del cliente."); return; }
   if(!items.length){ alert("Seleccioná al menos una opción."); return; }
-  const btn=$("btn-pdf"); btn.disabled=true; btn.textContent="Generando…";
+  const btn=$("btn-pdf"); btn.disabled=true; btn.textContent="Generando vista previa…";
   try{
-    // 1) Genero el PDF con las imágenes actuales del catálogo
-    await buildPDF({nombre,fecha,validez,items});
-    // 2) Guardo en el historial compartido SIN las imágenes base64 (para no inflar la base).
-    //    Guardo el nombre de cada opción; al regenerar, se toma la foto actual del catálogo.
-    const registro = {
-      nombre, fecha, validez,
-      items: items.map(i=>({ nombre:i.nombre, detalle:i.detalle, precio:i.precio }))
-    };
-    await apiPost(registro);
-  }catch(e){ alert("Error: "+e.message); }
-  finally{ btn.disabled=false; btn.textContent="⬇ Descargar PDF y guardar"; }
+    const q = {nombre,fecha,validez,items};
+    const { doc } = await buildPDF(q);
+    // Mostrar el PDF real embebido en el preview
+    const url = doc.output("bloburl");
+    $("preview-frame").src = url;
+    cotizacionPendiente = q;
+    $("preview").style.display = "flex";
+  }catch(e){ alert("Error al generar la vista previa: "+e.message); }
+  finally{ btn.disabled=false; btn.textContent="⬇ Generar vista previa"; }
 };
+
+// Confirmar desde el preview: descarga el PDF, guarda en historial y limpia
+$("preview-download").onclick=async()=>{
+  if(!cotizacionPendiente) return;
+  const b=$("preview-download"); b.disabled=true; b.textContent="Descargando…";
+  try{
+    const { doc, filename } = await buildPDF(cotizacionPendiente);
+    doc.save(filename);
+    // Guardar en historial (sin imágenes base64, para no inflar la base)
+    const q = cotizacionPendiente;
+    await apiPost({
+      nombre:q.nombre, fecha:q.fecha, validez:q.validez,
+      items: q.items.map(i=>({ nombre:i.nombre, detalle:i.detalle, precio:i.precio }))
+    });
+    // Cerrar preview + limpiar para la próxima cotización
+    cerrarPreview();
+    seleccion = {};
+    $("cli-nombre").value = "";
+    renderOpts(); updTotal();
+  }catch(e){ alert("Error al descargar/guardar: "+e.message); }
+  finally{ b.disabled=false; b.textContent="⬇ Descargar y guardar"; }
+};
+function cerrarPreview(){
+  $("preview").style.display="none";
+  const f=$("preview-frame");
+  if(f.src && f.src.startsWith("blob:")){ URL.revokeObjectURL(f.src); }
+  f.src="about:blank";
+}
+$("preview-close").onclick=cerrarPreview;
 
 async function buildPDF(q){
   const { jsPDF } = window.jspdf;
@@ -386,14 +460,22 @@ async function buildPDF(q){
   y+=4;
 
   // ── Tarjetas de propuesta ──
-  const imgH=52;
+  const bigH=52;      // alto imagen principal
+  const thumbH=22;    // alto miniaturas
   const gap=6;
   q.items.forEach((it,idx)=>{
-    // Si el registro no trae imagen (viene del historial), la busco en el catálogo actual
-    const img = it.img || imgDeCatalogo(it.nombre);
+    // Imágenes: las del registro, o si viene del historial (sin imgs), las del catálogo por nombre
+    let imgs = Array.isArray(it.imgs) && it.imgs.length ? it.imgs : imgsDeCatalogo(it.nombre);
+    if(!Array.isArray(imgs)) imgs = [];
+    const hasBig = imgs.length>=1;
+    const hasThumbs = imgs.length>=2;
+
     doc.setFontSize(9); const detLines = it.detalle?doc.splitTextToSize(it.detalle, CW-8):[];
-    const textZone = 9 + detLines.length*4 + 12;
-    const bodyH = img ? imgH + 6 + textZone : textZone + 4;
+    const textZone = detLines.length*4 + 14;   // detalle + recuadro precio
+    let imgZone = 0;
+    if(hasBig) imgZone += bigH + 4;
+    if(hasThumbs) imgZone += thumbH + 4;
+    const bodyH = imgZone + textZone + 4;
     const cardH = 9 + bodyH;
 
     if(y + cardH > H-24){ doc.addPage(); y=20; }
@@ -407,19 +489,36 @@ async function buildPDF(q){
     doc.text(doc.splitTextToSize(label, CW-8)[0], M+4, y+6);
 
     let cy = y+9+5;
-    if(img){
+    // Imagen principal (la primera), grande y centrada
+    if(hasBig){
       try{
-        const props = doc.getImageProperties(img);
+        const props = doc.getImageProperties(imgs[0]);
         const ratio = props.width/props.height;
         let dispW = CW-10, dispH = dispW/ratio;
-        if(dispH>imgH){ dispH=imgH; dispW=dispH*ratio; }
+        if(dispH>bigH){ dispH=bigH; dispW=dispH*ratio; }
         const ix = M + (CW-dispW)/2;
-        doc.addImage(img,"JPEG",ix,cy,dispW,dispH);
-        cy += Math.max(dispH, imgH) + 5;
+        doc.addImage(imgs[0], props.fileType||"JPEG", ix, cy, dispW, dispH);
       }catch(e){ }
+      cy += bigH + 4;
     }
+    // Miniaturas (resto de imágenes) en fila
+    if(hasThumbs){
+      let tx = M+4;
+      const tw = thumbH*1.4;   // ancho fijo de miniatura
+      for(let i=1;i<imgs.length;i++){
+        if(tx + tw > W-M-4) break;   // no pasar del borde
+        try{
+          doc.addImage(imgs[i], "JPEG", tx, cy, tw, thumbH);
+          doc.setDrawColor(220,224,230); doc.setLineWidth(.2); doc.rect(tx, cy, tw, thumbH, "S");
+        }catch(e){ }
+        tx += tw + 4;
+      }
+      cy += thumbH + 4;
+    }
+    // Descripción
     doc.setTextColor(70,70,70); doc.setFont("helvetica","normal"); doc.setFontSize(9);
     if(detLines.length){ doc.text(detLines, M+4, cy); cy += detLines.length*4 + 2; }
+    // Precio
     doc.setFillColor(253,236,235); doc.roundedRect(M+4, cy, 60, 9, 2, 2, "F");
     doc.setTextColor(...navy); doc.setFont("helvetica","bold"); doc.setFontSize(12);
     doc.text(money(it.precio), M+8, cy+6.2);
@@ -440,7 +539,8 @@ async function buildPDF(q){
     doc.text(empresa.nombre+" · "+empresa.web,M,292); doc.text("Página "+p+" de "+pages,rightX,292,{align:"right"}); }
 
   const safe=q.nombre.replace(/\s+/g,"_").replace(/[^\w\-]/g,"");
-  doc.save("Cotizacion_"+safe+"_"+q.fecha+".pdf");
+  const filename = "Cotizacion_"+safe+"_"+q.fecha+".pdf";
+  return { doc, filename };
 }
 
 // ───────── Historial (servidor) ─────────
@@ -473,7 +573,10 @@ function renderHist(){
         <button class="outline btn-re">↓ PDF</button>
         <button class="iconbtn btn-del" title="Eliminar">🗑️</button>
       </div>`;
-    div.querySelector(".btn-re").onclick=()=>buildPDF(h);
+    div.querySelector(".btn-re").onclick=async()=>{
+      try{ const { doc, filename } = await buildPDF(h); doc.save(filename); }
+      catch(e){ alert("No se pudo generar el PDF: "+e.message); }
+    };
     div.querySelector(".btn-del").onclick=async()=>{
       if(!confirm("¿Eliminar esta cotización del historial compartido?")) return;
       try{ await apiDelete(h.id); await cargarHist(); }catch(e){ alert("No se pudo borrar: "+e.message); }
