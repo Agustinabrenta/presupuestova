@@ -53,6 +53,15 @@
   .hist-actions { display:flex; gap:8px; flex-shrink:0; }
   .empty { text-align:center; color:var(--muted); padding:30px; font-size:14px; }
   .hidden { display:none; }
+  /* Login */
+  #login { position:fixed; inset:0; background:var(--navy); display:flex; align-items:center; justify-content:center; z-index:100; padding:20px; }
+  #login .box { background:#fff; border-radius:16px; padding:32px; width:100%; max-width:360px; text-align:center; box-shadow:0 10px 40px rgba(0,0,0,.3); }
+  #login .logo { font-size:40px; margin-bottom:8px; }
+  #login h1 { font-size:20px; color:var(--navy); margin:0 0 4px; }
+  #login p { font-size:13px; color:var(--muted); margin:0 0 20px; }
+  #login input { text-align:center; font-size:16px; margin-bottom:12px; }
+  #login button { width:100%; }
+  #login .err { color:#b3261e; font-size:13px; min-height:18px; margin-top:10px; }
   .status { font-size:12px; padding:6px 10px; border-radius:7px; display:inline-block; }
   .status.ok { background:#e7f5ec; color:#1c7a44; }
   .status.err { background:#fdecec; color:#b3261e; }
@@ -60,7 +69,19 @@
 </style>
 </head>
 <body>
-<div class="topbar">
+<!-- ============ LOGIN ============ -->
+<div id="login">
+  <div class="box">
+    <div class="logo">🎈</div>
+    <h1>Vuelo Aventura</h1>
+    <p>Ingresá la clave de acceso</p>
+    <input id="login-pass" type="password" placeholder="Clave" autocomplete="off">
+    <button class="primary" id="login-btn">Entrar</button>
+    <div class="err" id="login-err"></div>
+  </div>
+</div>
+
+<div class="topbar" style="display:none">
   <div class="brand">
     <div class="logo">🎈</div>
     <div><h1>Vuelo Aventura</h1><small>Generador de cotizaciones</small></div>
@@ -177,19 +198,27 @@ const $ = id => document.getElementById(id);
 
 // ───────── API del historial (servidor) ─────────
 const API = "/api/historial";
+let APP_PASS = "";   // clave en memoria; al recargar se pide de nuevo
+
+function authHeaders(extra){
+  return Object.assign({ "x-app-password": APP_PASS }, extra||{});
+}
 async function apiGet(){
-  const r = await fetch(API);
+  const r = await fetch(API, { headers: authHeaders() });
+  if(r.status===401) throw new Error("No autorizado");
   if(!r.ok) throw new Error("No se pudo leer el historial ("+r.status+")");
   return await r.json();
 }
 async function apiPost(item){
-  const r = await fetch(API, { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(item) });
+  const r = await fetch(API, { method:"POST", headers: authHeaders({"Content-Type":"application/json"}), body:JSON.stringify(item) });
+  if(r.status===401) throw new Error("No autorizado");
   if(!r.ok) throw new Error("No se pudo guardar en el historial ("+r.status+")");
   return await r.json();
 }
 async function apiDelete(id){
   const url = id ? API+"?id="+encodeURIComponent(id) : API;
-  const r = await fetch(url, { method:"DELETE" });
+  const r = await fetch(url, { method:"DELETE", headers: authHeaders() });
+  if(r.status===401) throw new Error("No autorizado");
   if(!r.ok) throw new Error("No se pudo borrar ("+r.status+")");
   return await r.json();
 }
@@ -442,8 +471,31 @@ $("btn-clear-hist").onclick=async()=>{
 
 function esc(s){ return String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
 
-// init
-renderOpts(); updTotal();
+// ───────── Login ─────────
+async function intentarLogin(){
+  const pass = $("login-pass").value;
+  const errEl = $("login-err");
+  const btn = $("login-btn");
+  if(!pass){ errEl.textContent="Ingresá la clave."; return; }
+  btn.disabled=true; btn.textContent="Verificando…"; errEl.textContent="";
+  APP_PASS = pass;
+  try{
+    // Probamos leer el historial: si la clave está mal, la API responde 401.
+    await apiGet();
+    // OK: ocultamos login, mostramos la app
+    $("login").style.display="none";
+    document.querySelector(".topbar").style.display="";
+    renderOpts(); updTotal();
+  }catch(e){
+    APP_PASS="";
+    errEl.textContent = e.message==="No autorizado" ? "Clave incorrecta." : ("Error: "+e.message);
+    btn.disabled=false; btn.textContent="Entrar";
+  }
+}
+$("login-btn").onclick=intentarLogin;
+$("login-pass").addEventListener("keydown",e=>{ if(e.key==="Enter") intentarLogin(); });
+$("login-pass").focus();
+
 </script>
 </body>
 </html>
