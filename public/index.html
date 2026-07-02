@@ -62,6 +62,9 @@
   #login input { text-align:center; font-size:16px; margin-bottom:12px; }
   #login button { width:100%; }
   #login .err { color:#b3261e; font-size:13px; min-height:18px; margin-top:10px; }
+  #login .passwrap { position:relative; }
+  #login .passwrap input { margin-bottom:12px; padding-right:44px; }
+  #login .toggle-eye { position:absolute; right:10px; top:11px; background:none; border:none; cursor:pointer; font-size:18px; line-height:1; padding:2px; width:auto; color:var(--muted); }
   .status { font-size:12px; padding:6px 10px; border-radius:7px; display:inline-block; }
   .status.ok { background:#e7f5ec; color:#1c7a44; }
   .status.err { background:#fdecec; color:#b3261e; }
@@ -75,7 +78,10 @@
     <div class="logo">🎈</div>
     <h1>Vuelo Aventura</h1>
     <p>Ingresá la clave de acceso</p>
-    <input id="login-pass" type="password" placeholder="Clave" autocomplete="off">
+    <div class="passwrap">
+      <input id="login-pass" type="password" placeholder="Clave" autocomplete="off">
+      <button class="toggle-eye" id="toggle-eye" type="button" title="Mostrar/ocultar clave" aria-label="Mostrar u ocultar clave">👁️</button>
+    </div>
     <button class="primary" id="login-btn">Entrar</button>
     <div class="err" id="login-err"></div>
   </div>
@@ -494,6 +500,13 @@ async function intentarLogin(){
 }
 $("login-btn").onclick=intentarLogin;
 $("login-pass").addEventListener("keydown",e=>{ if(e.key==="Enter") intentarLogin(); });
+$("toggle-eye").onclick=()=>{
+  const inp=$("login-pass");
+  const visible = inp.type==="text";
+  inp.type = visible ? "password" : "text";
+  $("toggle-eye").textContent = visible ? "👁️" : "🙈";
+  inp.focus();
+};
 $("login-pass").focus();
 
 </script>
