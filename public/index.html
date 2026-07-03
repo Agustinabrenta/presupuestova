@@ -28,6 +28,8 @@
   input:focus,textarea:focus { border-color:var(--navy); }
   .opt { display:flex; align-items:center; gap:14px; padding:12px 14px; border-radius:10px; cursor:pointer; border:1.5px solid var(--line); background:#fff; margin-bottom:10px; }
   .opt.on { border:2px solid var(--navy); background:var(--navy-soft); }
+  .cat-head { font-size:12px; font-weight:700; color:var(--navy); text-transform:uppercase; letter-spacing:.04em; margin:14px 0 8px; padding-bottom:4px; border-bottom:1.5px solid var(--navy-soft); }
+  .cat-head:first-child { margin-top:0; }
   .opt .box { width:22px; height:22px; border-radius:6px; flex-shrink:0; display:grid; place-items:center; background:#fff; border:1.5px solid #c3cad6; color:#fff; font-size:14px; }
   .opt.on .box { background:var(--navy); border:none; }
   .opt img.thumb { width:64px; height:64px; border-radius:8px; object-fit:cover; flex-shrink:0; background:#eef1f6; }
@@ -42,7 +44,9 @@
   button.outline { display:inline-flex; align-items:center; gap:7px; background:#fff; color:var(--navy); border:1.5px solid var(--navy); padding:9px 16px; border-radius:9px; font-size:13.5px; font-weight:600; cursor:pointer; }
   button.outline:disabled { opacity:.5; cursor:default; }
   .cfg-card { border:1.5px solid var(--line); border-radius:12px; padding:14px; margin-bottom:14px; }
-  .cfg-card .top { display:grid; grid-template-columns:1fr 120px 34px; gap:8px; align-items:start; margin-bottom:10px; }
+  .cfg-card .top { display:grid; grid-template-columns:1fr 100px 80px 34px; gap:8px; align-items:start; margin-bottom:10px; }
+  .cfg-card .cat-row { display:flex; align-items:center; margin-bottom:8px; }
+  .cfg-card .cat-in { max-width:220px; }
   .cfg-card input, .cfg-card textarea { padding:8px 10px; font-size:13px; }
   .cfg-card textarea { width:100%; resize:vertical; line-height:1.45; font-family:inherit; }
   .cfg-card .det-label { font-size:11.5px; font-weight:600; color:#5a6474; display:block; margin:4px 0 4px; }
@@ -81,7 +85,7 @@
   .status { font-size:12px; padding:6px 10px; border-radius:7px; display:inline-block; }
   .status.ok { background:#e7f5ec; color:#1c7a44; }
   .status.err { background:#fdecec; color:#b3261e; }
-  @media (max-width:560px){ .cfg-card .top{ grid-template-columns:1fr 90px 30px; } }
+  @media (max-width:560px){ .cfg-card .top{ grid-template-columns:1fr 70px 60px 28px; } }
 </style>
 </head>
 <body>
@@ -133,7 +137,7 @@
         <div id="sel-count" style="font-size:12.5px;color:var(--muted)">0 opciones seleccionadas</div>
         <div class="total" id="sel-total">Elegí las opciones a enviar</div>
       </div>
-      <button class="primary" id="btn-pdf">⬇ Generar vista previa</button>
+      <button class="primary" id="btn-pdf">⬇ Descargar PDF y guardar</button>
     </div>
   </div>
 </div>
@@ -156,11 +160,12 @@
 <div class="wrap hidden" id="view-catalogo">
   <div class="card">
     <h2>Editar catálogo de servicios</h2>
+    <datalist id="cat-options"></datalist>
     <div id="cfg-list"></div>
     <button class="outline" id="btn-add" style="margin-top:6px">+ Agregar opción</button>
   </div>
   <div class="card">
-    <h2>Términos y condiciones</h2>
+    <h2>Observaciones</h2>
     <textarea id="tyc" class="tyc" rows="9"></textarea>
   </div>
   <div class="card">
@@ -173,18 +178,6 @@
       <label class="field"><span>Email</span><input id="emp-email"></label>
       <label class="field"><span>Web</span><input id="emp-web"></label>
   </div>
-</div>
-
-<!-- ============ PREVIEW PDF ============ -->
-<div id="preview">
-  <div class="pv-head">
-    <div class="ttl">Vista previa de la cotización</div>
-    <div class="pv-actions">
-      <button class="ghost" id="preview-close">Cerrar y editar</button>
-      <button class="primary" id="preview-download">⬇ Descargar y guardar</button>
-    </div>
-  </div>
-  <iframe id="preview-frame" src="about:blank"></iframe>
 </div>
 
 <script>
@@ -206,11 +199,11 @@ const TYC_DEF = `1. Los precios están expresados en dólares estadounidenses (U
 4. Los vuelos en globo aerostático están sujetos a la reglamentación de la ANAC y a la decisión final del piloto comandante.
 5. Esta cotización tiene la validez indicada. Pasado ese plazo, los valores pueden ser actualizados.`;
 const CAT_DEF = [
-  {id:1,nombre:"Vuelo compartido (por persona)",detalle:"Vuelo grupal de aprox. 1 hora al amanecer",precio:180,imgs:[]},
-  {id:2,nombre:"Vuelo privado (hasta 2 personas)",detalle:"Cesta exclusiva, brindis y certificado",precio:650,imgs:[]},
-  {id:3,nombre:"Traslado ida y vuelta",detalle:"Desde punto de encuentro al sitio de despegue",precio:45,imgs:[]},
-  {id:4,nombre:"Sesión de fotos y video",detalle:"Cobertura profesional entregada en digital",precio:90,imgs:[]},
-  {id:5,nombre:"Desayuno campestre",detalle:"Desayuno completo al finalizar el vuelo",precio:30,imgs:[]}
+  {id:1,nombre:"Vuelo compartido (por persona)",detalle:"Vuelo grupal de aprox. 1 hora al amanecer",precio:180,moneda:"USD",categoria:"Vuelos",imgs:[]},
+  {id:2,nombre:"Vuelo privado (hasta 2 personas)",detalle:"Cesta exclusiva, brindis y certificado",precio:650,moneda:"USD",categoria:"Vuelos",imgs:[]},
+  {id:3,nombre:"Traslado ida y vuelta",detalle:"Desde punto de encuentro al sitio de despegue",precio:45,moneda:"USD",categoria:"Extras",imgs:[]},
+  {id:4,nombre:"Sesión de fotos y video",detalle:"Cobertura profesional entregada en digital",precio:90,moneda:"USD",categoria:"Extras",imgs:[]},
+  {id:5,nombre:"Desayuno campestre",detalle:"Desayuno completo al finalizar el vuelo",precio:30,moneda:"USD",categoria:"Extras",imgs:[]}
 ];
 
 // localStorage se sigue usando SOLO para config local (catálogo, T&C, empresa).
@@ -221,17 +214,19 @@ const LS = {
 };
 
 let catalogo = LS.get("va_catalogo", CAT_DEF);
-// Migración: opciones viejas con "img" (una sola) → "imgs" (array)
+// Migración: opciones viejas → nuevos campos con valores por defecto
 catalogo.forEach(o=>{
   if(!Array.isArray(o.imgs)){ o.imgs = o.img ? [o.img] : []; }
   delete o.img;
+  if(typeof o.moneda!=="string" || !o.moneda) o.moneda = "USD";
+  if(typeof o.categoria!=="string") o.categoria = "";
 });
 let tyc = LS.get("va_tyc", TYC_DEF);
 let empresa = LS.get("va_empresa", EMPRESA_DEF);
 let historial = [];            // ← ahora se carga del servidor
 let seleccion = {};
 
-const money = n => "USD "+Number(n||0).toLocaleString("es-AR",{minimumFractionDigits:2,maximumFractionDigits:2});
+const money = (n, moneda) => (moneda||"USD")+" "+Number(n||0).toLocaleString("es-AR",{minimumFractionDigits:2,maximumFractionDigits:2});
 const $ = id => document.getElementById(id);
 
 // ───────── API del historial (servidor) ─────────
@@ -268,25 +263,46 @@ document.querySelectorAll(".tab").forEach(t=>t.onclick=()=>{
   ["cotizar","historial","catalogo"].forEach(v=>$("view-"+v).classList.add("hidden"));
   $("view-"+t.dataset.view).classList.remove("hidden");
   if(t.dataset.view==="historial") cargarHist();
-  if(t.dataset.view==="catalogo") renderCfg();
+  if(t.dataset.view==="catalogo"){ renderCfg(); actualizarCatDatalist(); }
 });
 
 // ───────── Vista Cotizar ─────────
 $("cli-fecha").value = new Date().toISOString().slice(0,10);
 
+function agruparPorCategoria(items){
+  // Devuelve array de [categoria, opciones[]] respetando el orden de aparición
+  const grupos = new Map();
+  items.forEach(o=>{
+    const cat = (o.categoria||"").trim() || "Sin categoría";
+    if(!grupos.has(cat)) grupos.set(cat, []);
+    grupos.get(cat).push(o);
+  });
+  return [...grupos.entries()];
+}
+
 function renderOpts(){
   const list = $("opt-list"); list.innerHTML="";
-  catalogo.forEach(o=>{
-    const on = !!seleccion[o.id];
-    const div = document.createElement("div");
-    div.className = "opt"+(on?" on":"");
-    div.innerHTML = `
-      <div class="box">${on?"✓":""}</div>
-      ${o.imgs&&o.imgs.length?`<img class="thumb" src="${o.imgs[0]}">`:""}
-      <div><div class="name">${esc(o.nombre)||"(sin nombre)"}</div>${o.detalle?`<div class="det">${esc(o.detalle)}</div>`:""}</div>
-      <div class="price">${money(o.precio)}</div>`;
-    div.onclick=()=>{ seleccion[o.id]=!seleccion[o.id]; renderOpts(); updTotal(); };
-    list.appendChild(div);
+  const grupos = agruparPorCategoria(catalogo);
+  const varias = grupos.length>1 || (grupos.length===1 && grupos[0][0]!=="Sin categoría");
+  grupos.forEach(([cat, ops])=>{
+    if(varias){
+      const h = document.createElement("div");
+      h.className = "cat-head";
+      h.textContent = cat;
+      list.appendChild(h);
+    }
+    ops.forEach(o=>{
+      const on = !!seleccion[o.id];
+      const div = document.createElement("div");
+      div.className = "opt"+(on?" on":"");
+      div.innerHTML = `
+        <div class="box">${on?"✓":""}</div>
+        ${o.imgs&&o.imgs.length?`<img class="thumb" src="${o.imgs[0]}">`:""}
+        <div><div class="name">${esc(o.nombre)||"(sin nombre)"}</div>${o.detalle?`<div class="det">${esc(o.detalle)}</div>`:""}</div>
+        <div class="price">${money(o.precio, o.moneda)}</div>`;
+      div.onclick=()=>{ seleccion[o.id]=!seleccion[o.id]; renderOpts(); updTotal(); };
+      list.appendChild(div);
+    });
   });
 }
 function updTotal(){
@@ -307,8 +323,13 @@ function renderCfg(){
     row.innerHTML = `
       <div class="top">
         <input value="${esc(o.nombre)}" placeholder="Nombre de la opción" data-f="nombre">
-        <input value="${o.precio}" placeholder="USD" inputmode="decimal" data-f="precio">
+        <input value="${o.precio}" placeholder="Precio" inputmode="decimal" data-f="precio">
+        <input value="${esc(o.moneda||'USD')}" placeholder="Moneda" data-f="moneda" class="moneda-in">
         <button class="iconbtn btn-del-opt" title="Eliminar opción">🗑️</button>
+      </div>
+      <div class="cat-row">
+        <label class="det-label" style="margin:0 8px 0 0">Categoría</label>
+        <input value="${esc(o.categoria||'')}" placeholder="Ej: Vuelos, Extras…" data-f="categoria" list="cat-options" class="cat-in">
       </div>
       <label class="det-label">Descripción</label>
       <textarea rows="3" placeholder="Descripción de la opción (podés escribir varios renglones)" data-f="detalle">${esc(o.detalle)}</textarea>
@@ -317,10 +338,12 @@ function renderCfg(){
         ${imgsHtml}
         <div class="img-add">+ imagen</div>
       </div>`;
-    // inputs de texto/precio y textarea
+    // inputs de texto/precio/moneda y textarea
     row.querySelectorAll("[data-f]").forEach(inp=>{
       inp.oninput=()=>{ let v=inp.value; if(inp.dataset.f==="precio") v=v.replace(/[^\d.]/g,""); o[inp.dataset.f]=inp.dataset.f==="precio"?v:inp.value; save(); };
     });
+    // al terminar de editar la categoría, refrescar agrupaciones y datalist
+    row.querySelector('[data-f="categoria"]').onchange=()=>{ actualizarCatDatalist(); renderOpts(); updTotal(); };
     // borrar opción
     row.querySelector(".btn-del-opt").onclick=()=>{ catalogo=catalogo.filter(x=>x!==o); delete seleccion[o.id]; save(); renderCfg(); renderOpts(); updTotal(); };
     // agregar imagen
@@ -350,7 +373,17 @@ function compress(dataUrl, maxW, cb){
   img.src=dataUrl;
 }
 
-$("btn-add").onclick=()=>{ catalogo.push({id:Date.now(),nombre:"",detalle:"",precio:0,imgs:[]}); save(); renderCfg(); renderOpts(); };
+function actualizarCatDatalist(){
+  const dl = $("cat-options"); if(!dl) return;
+  const cats = [...new Set(catalogo.map(o=>(o.categoria||"").trim()).filter(Boolean))];
+  dl.innerHTML = cats.map(c=>`<option value="${esc(c)}">`).join("");
+}
+$("btn-add").onclick=()=>{
+  const ultimaCat = catalogo.length ? (catalogo[catalogo.length-1].categoria||"") : "";
+  const ultimaMon = catalogo.length ? (catalogo[catalogo.length-1].moneda||"USD") : "USD";
+  catalogo.push({id:Date.now(),nombre:"",detalle:"",precio:0,moneda:ultimaMon,categoria:ultimaCat,imgs:[]});
+  save(); renderCfg(); renderOpts(); actualizarCatDatalist();
+};
 
 // TyC + empresa
 $("tyc").value = tyc;
@@ -366,59 +399,34 @@ function imgsDeCatalogo(nombre){
   return (o && Array.isArray(o.imgs)) ? o.imgs : [];
 }
 
-// ───────── PDF ─────────
-let cotizacionPendiente = null;   // datos de la cotización mostrada en el preview
-
+// ───────── PDF (descarga directa) ─────────
 $("btn-pdf").onclick=async()=>{
   const nombre=$("cli-nombre").value.trim();
   const fecha=$("cli-fecha").value;
   const validez=$("cli-validez").value||"15";
   const items=catalogo.filter(o=>seleccion[o.id]).map(o=>({
-    nombre:o.nombre, detalle:o.detalle, precio:o.precio, imgs:(o.imgs||[]).slice()
+    nombre:o.nombre, detalle:o.detalle, precio:o.precio, moneda:o.moneda||"USD", imgs:(o.imgs||[]).slice()
   }));
   if(!nombre){ alert("Ingresá el nombre del cliente."); return; }
   if(!items.length){ alert("Seleccioná al menos una opción."); return; }
-  const btn=$("btn-pdf"); btn.disabled=true; btn.textContent="Generando vista previa…";
+  const btn=$("btn-pdf"); btn.disabled=true; btn.textContent="Generando…";
   try{
     const q = {nombre,fecha,validez,items};
-    const { doc } = await buildPDF(q);
-    // Mostrar el PDF real embebido en el preview
-    const url = doc.output("bloburl");
-    $("preview-frame").src = url;
-    cotizacionPendiente = q;
-    $("preview").style.display = "flex";
-  }catch(e){ alert("Error al generar la vista previa: "+e.message); }
-  finally{ btn.disabled=false; btn.textContent="⬇ Generar vista previa"; }
-};
-
-// Confirmar desde el preview: descarga el PDF, guarda en historial y limpia
-$("preview-download").onclick=async()=>{
-  if(!cotizacionPendiente) return;
-  const b=$("preview-download"); b.disabled=true; b.textContent="Descargando…";
-  try{
-    const { doc, filename } = await buildPDF(cotizacionPendiente);
+    // 1) Genero y descargo el PDF
+    const { doc, filename } = await buildPDF(q);
     doc.save(filename);
-    // Guardar en historial (sin imágenes base64, para no inflar la base)
-    const q = cotizacionPendiente;
+    // 2) Guardo en historial (sin imágenes base64, para no inflar la base)
     await apiPost({
-      nombre:q.nombre, fecha:q.fecha, validez:q.validez,
-      items: q.items.map(i=>({ nombre:i.nombre, detalle:i.detalle, precio:i.precio }))
+      nombre, fecha, validez,
+      items: items.map(i=>({ nombre:i.nombre, detalle:i.detalle, precio:i.precio, moneda:i.moneda }))
     });
-    // Cerrar preview + limpiar para la próxima cotización
-    cerrarPreview();
+    // 3) Limpio para la próxima cotización
     seleccion = {};
     $("cli-nombre").value = "";
     renderOpts(); updTotal();
-  }catch(e){ alert("Error al descargar/guardar: "+e.message); }
-  finally{ b.disabled=false; b.textContent="⬇ Descargar y guardar"; }
+  }catch(e){ alert("Error: "+e.message); }
+  finally{ btn.disabled=false; btn.textContent="⬇ Descargar PDF y guardar"; }
 };
-function cerrarPreview(){
-  $("preview").style.display="none";
-  const f=$("preview-frame");
-  if(f.src && f.src.startsWith("blob:")){ URL.revokeObjectURL(f.src); }
-  f.src="about:blank";
-}
-$("preview-close").onclick=cerrarPreview;
 
 async function buildPDF(q){
   const { jsPDF } = window.jspdf;
@@ -522,16 +530,16 @@ async function buildPDF(q){
     // Precio
     doc.setFillColor(253,236,235); doc.roundedRect(M+4, cy, 60, 9, 2, 2, "F");
     doc.setTextColor(...navy); doc.setFont("helvetica","bold"); doc.setFontSize(12);
-    doc.text(money(it.precio), M+8, cy+6.2);
+    doc.text(money(it.precio, it.moneda), M+8, cy+6.2);
 
     y += cardH + gap;
   });
 
-  // ── Términos y condiciones ──
+  // ── Observaciones ──
   y += 2;
   if(y>H-40){ doc.addPage(); y=20; }
   doc.setTextColor(...navy); doc.setFont("helvetica","bold"); doc.setFontSize(10);
-  doc.text("Términos y condiciones",M,y); y+=5;
+  doc.text("Observaciones",M,y); y+=5;
   doc.setTextColor(90,90,90); doc.setFont("helvetica","normal"); doc.setFontSize(7.8);
   doc.splitTextToSize(tyc,CW).forEach(l=>{ if(y>H-12){doc.addPage();y=20;} doc.text(l,M,y); y+=3.6; });
 
@@ -562,9 +570,16 @@ function renderHist(){
   historial.forEach(h=>{
     const div=document.createElement("div"); div.className="hist-item";
     const fFmt=new Date(h.fecha+"T00:00").toLocaleDateString("es-AR");
-    const precios=(h.items||[]).map(i=>Number(i.precio||0));
-    const min=precios.length?Math.min(...precios):0, max=precios.length?Math.max(...precios):0;
-    const rango = min===max ? money(min) : money(min)+" – "+money(max);
+    const items = h.items||[];
+    const monedas = [...new Set(items.map(i=>i.moneda||"USD"))];
+    let rango;
+    if(monedas.length===1){
+      const precios = items.map(i=>Number(i.precio||0));
+      const min = precios.length?Math.min(...precios):0, max = precios.length?Math.max(...precios):0;
+      rango = min===max ? money(min, monedas[0]) : money(min, monedas[0])+" – "+money(max, monedas[0]);
+    } else {
+      rango = "varias monedas";
+    }
     div.innerHTML=`
       <div>
         <div style="font-weight:700">${esc(h.nombre)}</div>
