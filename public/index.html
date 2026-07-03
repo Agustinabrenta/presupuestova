@@ -28,8 +28,15 @@
   input:focus,textarea:focus { border-color:var(--navy); }
   .opt { display:flex; align-items:center; gap:14px; padding:12px 14px; border-radius:10px; cursor:pointer; border:1.5px solid var(--line); background:#fff; margin-bottom:10px; }
   .opt.on { border:2px solid var(--navy); background:var(--navy-soft); }
-  .cat-head { font-size:12px; font-weight:700; color:var(--navy); text-transform:uppercase; letter-spacing:.04em; margin:14px 0 8px; padding-bottom:4px; border-bottom:1.5px solid var(--navy-soft); }
-  .cat-head:first-child { margin-top:0; }
+  .cat-acc { display:flex; align-items:center; gap:10px; cursor:pointer; padding:12px 14px; margin-top:10px; border-radius:10px; background:var(--navy-soft); border:1.5px solid transparent; user-select:none; }
+  .cat-acc:first-child { margin-top:0; }
+  .cat-acc:hover { border-color:var(--navy); }
+  .cat-acc .cat-arrow { color:var(--navy); font-size:13px; transition:transform .15s; display:inline-block; }
+  .cat-acc.open .cat-arrow { transform:rotate(90deg); }
+  .cat-acc .cat-name { font-weight:700; color:var(--navy); font-size:14px; flex:1; }
+  .cat-acc .cat-count { font-size:12px; font-weight:600; color:#fff; background:var(--navy); padding:2px 9px; border-radius:20px; }
+  .cat-body { padding-top:8px; }
+  .cat-body .opt { margin-left:6px; }
   .opt .box { width:22px; height:22px; border-radius:6px; flex-shrink:0; display:grid; place-items:center; background:#fff; border:1.5px solid #c3cad6; color:#fff; font-size:14px; }
   .opt.on .box { background:var(--navy); border:none; }
   .opt img.thumb { width:64px; height:64px; border-radius:8px; object-fit:cover; flex-shrink:0; background:#eef1f6; }
@@ -225,6 +232,7 @@ let tyc = LS.get("va_tyc", TYC_DEF);
 let empresa = LS.get("va_empresa", EMPRESA_DEF);
 let historial = [];            // ← ahora se carga del servidor
 let seleccion = {};
+let categoriasAbiertas = {};   // recuerda qué categorías están desplegadas
 
 const money = (n, moneda) => (moneda||"USD")+" "+Number(n||0).toLocaleString("es-AR",{minimumFractionDigits:2,maximumFractionDigits:2});
 const $ = id => document.getElementById(id);
@@ -283,14 +291,24 @@ function agruparPorCategoria(items){
 function renderOpts(){
   const list = $("opt-list"); list.innerHTML="";
   const grupos = agruparPorCategoria(catalogo);
-  const varias = grupos.length>1 || (grupos.length===1 && grupos[0][0]!=="Sin categoría");
   grupos.forEach(([cat, ops])=>{
-    if(varias){
-      const h = document.createElement("div");
-      h.className = "cat-head";
-      h.textContent = cat;
-      list.appendChild(h);
-    }
+    const abierta = !!categoriasAbiertas[cat];
+    const nSel = ops.filter(o=>seleccion[o.id]).length;
+
+    // Encabezado de la categoría (clicable)
+    const head = document.createElement("div");
+    head.className = "cat-acc"+(abierta?" open":"");
+    head.innerHTML = `
+      <span class="cat-arrow">▸</span>
+      <span class="cat-name">${esc(cat)}</span>
+      <span class="cat-count"${nSel?'':' style="display:none"'}>${nSel} elegida${nSel!==1?'s':''}</span>`;
+    head.onclick=()=>{ categoriasAbiertas[cat] = !categoriasAbiertas[cat]; renderOpts(); };
+    list.appendChild(head);
+
+    // Contenedor de opciones (se muestra solo si está abierta)
+    const cont = document.createElement("div");
+    cont.className = "cat-body";
+    cont.style.display = abierta ? "block" : "none";
     ops.forEach(o=>{
       const on = !!seleccion[o.id];
       const div = document.createElement("div");
@@ -300,9 +318,20 @@ function renderOpts(){
         ${o.imgs&&o.imgs.length?`<img class="thumb" src="${o.imgs[0]}">`:""}
         <div><div class="name">${esc(o.nombre)||"(sin nombre)"}</div>${o.detalle?`<div class="det">${esc(o.detalle)}</div>`:""}</div>
         <div class="price">${money(o.precio, o.moneda)}</div>`;
-      div.onclick=()=>{ seleccion[o.id]=!seleccion[o.id]; renderOpts(); updTotal(); };
-      list.appendChild(div);
+      div.onclick=()=>{
+        seleccion[o.id]=!seleccion[o.id];
+        div.classList.toggle("on", !!seleccion[o.id]);
+        div.querySelector(".box").textContent = seleccion[o.id]?"✓":"";
+        // actualizar contador de la categoría sin cerrar el acordeón
+        const nuevoN = ops.filter(x=>seleccion[x.id]).length;
+        const cc = head.querySelector(".cat-count");
+        cc.textContent = nuevoN+" elegida"+(nuevoN!==1?"s":"");
+        cc.style.display = nuevoN ? "" : "none";
+        updTotal();
+      };
+      cont.appendChild(div);
     });
+    list.appendChild(cont);
   });
 }
 function updTotal(){
@@ -422,6 +451,7 @@ $("btn-pdf").onclick=async()=>{
     });
     // 3) Limpio para la próxima cotización
     seleccion = {};
+    categoriasAbiertas = {};
     $("cli-nombre").value = "";
     renderOpts(); updTotal();
   }catch(e){ alert("Error: "+e.message); }
